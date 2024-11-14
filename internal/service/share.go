@@ -190,7 +190,7 @@ func (s *shareService) GetChatGPTOauthLoginUrl(share *model.Share) (string, erro
 		return "", err
 	}
 	s.logger.Info("LoginShareByPassword resp", zap.Any("resp", result))
-	finalLoginUrl := fmt.Sprintf("%s/?token=%s", s.viper.GetString("pandora.domain.index"), result.OauthToken)
+	finalLoginUrl := fmt.Sprintf("%s/auth/login_oauth?token=%s", s.viper.GetString("pandora.domain.index"), result.OauthToken)
 	return finalLoginUrl, nil
 }
 
