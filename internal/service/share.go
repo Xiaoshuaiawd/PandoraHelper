@@ -170,9 +170,15 @@ func (s *shareService) LoginShareByPassword(ctx context.Context, username string
 }
 
 func (s *shareService) GetChatGPTOauthLoginUrl(share *model.Share) (string, error) {
+	// 获取账号的access token
+	account, err := s.coordinator.AccountSvc.GetAccount(ctx, int64(share.AccountID))
+	if err != nil {
+		return "", err
+	}
+
 	indexDomain := fmt.Sprintf("%s/api/auth/oauth_token", s.viper.GetString("pandora.domain.index"))
 	reqBody := map[string]interface{}{
-		"share_token": share.ShareToken,
+		"access_token": account.AccessToken,
 	}
 	result := struct {
 		LoginUrl   string `json:"login_url"`
