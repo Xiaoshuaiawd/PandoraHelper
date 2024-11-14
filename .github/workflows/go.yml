@@ -127,11 +127,16 @@ jobs:
         mkdir -p builds
         rm -rf builds/*
         
-        # 复制新构建的文件
-        cp temp-builds/*/*.zip builds/
+        # 使用find命令找到所有zip文件并复制到builds目录
+        find temp-builds -name "*.zip" -exec cp -f {} builds/ \;
+        
+        # 列出所有复制的文件
+        echo "Copied files:"
+        ls -la builds/
         
         # 验证所有zip文件
         for zip in builds/*.zip; do
+          echo "Validating: $zip"
           if ! unzip -t "$zip" > /dev/null; then
             echo "Error: Invalid zip file: $zip"
             exit 1
