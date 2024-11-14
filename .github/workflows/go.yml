@@ -47,8 +47,9 @@ jobs:
 
     - name: Build binary
       run: |
-        mkdir -p builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}
-        mkdir -p builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/data
+        BUILD_DIR="PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+        mkdir -p "$BUILD_DIR"
+        mkdir -p "$BUILD_DIR/data"
         
         if [ "${{ matrix.goos }}" = "windows" ]; then
           BINARY_NAME="PandoraHelper.exe"
@@ -57,21 +58,39 @@ jobs:
         fi
         
         if [ "${{ matrix.goarch }}" = "arm" ]; then
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go build -ldflags="-s -w" -o builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME} ./cmd/server/main.go
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go build -ldflags="-s -w" -o "$BUILD_DIR/${BINARY_NAME}" ./cmd/server/main.go
         else
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME} ./cmd/server/main.go
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o "$BUILD_DIR/${BINARY_NAME}" ./cmd/server/main.go
         fi
         
         if [ "${{ matrix.goos }}" != "windows" ] || [ "${{ matrix.goarch }}" != "arm" ]; then
-          upx builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME}
+          upx "$BUILD_DIR/${BINARY_NAME}"
         fi
         
-        cp -r data/config.json builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/data/
+        cp -r data/config.json "$BUILD_DIR/data/"
 
     - name: Compress binaries
       run: |
-        cd builds
-        zip -r PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}
+        ZIP_NAME="PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
+        BUILD_DIR="PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+        
+        # 确保在工作目录下执行压缩
+        cd "$GITHUB_WORKSPACE"
+        
+        # 使用绝对路径进行压缩
+        zip -r "$ZIP_NAME" "$BUILD_DIR"
+        
+        # 验证zip文件
+        unzip -t "$ZIP_NAME"
+        
+        # 如果验证成功，移动到builds目录
+        if [ $? -eq 0 ]; then
+          mkdir -p builds
+          mv "$ZIP_NAME" builds/
+        else
+          echo "Zip file validation failed"
+          exit 1
+        fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
@@ -111,6 +130,14 @@ jobs:
         # 复制新构建的文件
         cp temp-builds/*/*.zip builds/
         
+        # 验证所有zip文件
+        for zip in builds/*.zip; do
+          if ! unzip -t "$zip" > /dev/null; then
+            echo "Error: Invalid zip file: $zip"
+            exit 1
+          fi
+        done
+        
         # 强制添加到 Git（忽略 .gitignore）
         git add -f builds/*.zip
         
@@ -133,6 +160,15 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         path: builds
+
+    - name: Validate zip files
+      run: |
+        for zip in builds/**/*.zip; do
+          if ! unzip -t "$zip" > /dev/null; then
+            echo "Error: Invalid zip file: $zip"
+            exit 1
+          fi
+        done
 
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1.14.0
