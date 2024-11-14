@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - '*'  # 当推送 Tag 时触发
+      - '*'
   workflow_dispatch:
 
 jobs:
@@ -50,26 +50,22 @@ jobs:
         mkdir -p builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}
         mkdir -p builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/data
         
-        # 设置输出文件名
         if [ "${{ matrix.goos }}" = "windows" ]; then
           BINARY_NAME="PandoraHelper.exe"
         else
           BINARY_NAME="PandoraHelper"
         fi
         
-        # 构建二进制文件
         if [ "${{ matrix.goarch }}" = "arm" ]; then
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go build -ldflags="-s -w" -o builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME} ./cmd/server/main.go
         else
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME} ./cmd/server/main.go
         fi
         
-        # UPX压缩（跳过Windows ARM架构）
         if [ "${{ matrix.goos }}" != "windows" ] || [ "${{ matrix.goarch }}" != "arm" ]; then
           upx builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/${BINARY_NAME}
         fi
         
-        # 复制配置文件
         cp -r data/config.json builds/PandoraHelper-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/data/
 
     - name: Compress binaries
@@ -89,24 +85,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: main
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Download all artifacts
       uses: actions/download-artifact@v3
       with:
-        path: builds
+        path: temp-builds
 
-    - name: Prepare artifacts for release
+    - name: Prepare and commit builds
       run: |
-        mkdir -p release
-        find builds -name "*.zip" -exec cp {} release/ \;
-
-    - name: Check artifacts
-      run: |
-        if [ ! -d "release" ] || [ -z "$(ls -A release)" ]; then
-          echo "Error: No artifacts found in release directory"
-          exit 1
+        # 配置 Git
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        
+        # 创建或清理 builds 目录
+        mkdir -p builds
+        rm -rf builds/*
+        
+        # 复制新构建的文件
+        cp temp-builds/*/*.zip builds/
+        
+        # 添加到 Git
+        git add builds/
+        
+        # 检查是否有变更
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: update builds for ${{ github.ref_name }}"
+          git push
         fi
-        echo "Found the following artifacts:"
-        ls -la release/
 
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1.14.0
@@ -114,7 +127,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
-        artifacts: "release/*.zip"
+        artifacts: "builds/*.zip"
         allowUpdates: true
         draft: false
         prerelease: false
