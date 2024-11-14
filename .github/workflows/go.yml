@@ -135,4 +135,8 @@ jobs:
         else
           git commit -m "chore: update builds for ${{ github.ref_name }}"
           git push
+<<<<<<< HEAD
         fi
+=======
+        fi
+>>>>>>> 380ed46ad0395c574850c5c5d0ef9ca8bb4734d2
