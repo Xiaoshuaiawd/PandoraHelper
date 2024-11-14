@@ -390,7 +390,7 @@ window.addEventListener('load', function () {
             if (!result.isConfirmed || !result.value) {
                 return
             }
-            window.location.href = "{{ .IndexDomain }}" + '/auth/login_share?token=' + result.value
+            window.location.href = "{{ .IndexDomain }}" + '/?token=' + result.value
         })
     })
 
