@@ -1,0 +1,60 @@
+{
+  "database": {
+    "driver": "sqlite",
+    "dsn": "./data/data.db"
+  },
+  "http": {
+    "host": "0.0.0.0",
+    "port": 9000,
+    "proxy-pass": {
+      "fuclaude": {
+        "enable": true,
+        "host": "https://demo.fuclaude.com",
+        "port": 9002
+      },
+      "oaifree": {
+        "enable": true,
+        "host": "https://new.oaifree.com",
+        "port": 9001
+      }
+    },
+    "rate": 1000,
+    "title": "Pandora"
+  },
+  "log": {
+    "compress": true,
+    "encoding": "console",
+    "level": "info",
+    "log_file_name": "./logs/server.log",
+    "max_age": 7,
+    "max_backups": 30,
+    "max_size": 1024,
+    "output": "console"
+  },
+  "moderation": {
+    "apikey": "",
+    "apiurl": "https://api-proxy.oaipro.com/v1/moderations",
+    "message": "您的消息包含不当内容，请修改后重试!"
+  },
+  "oneapi": {
+    "domain": "",
+    "token": ""
+  },
+  "pandora": {
+    "domain": {
+      "chat": "https://chat.oaifree.com",
+      "claude": "http://localhost:9002",
+      "index": "http://localhost:9001",
+      "token": "https://token.oaifree.com"
+    },
+    "account_refresh_cron": ""
+  },
+  "security": {
+    "2fa_secret": "",
+    "admin_password": ""
+  },
+  "share": {
+    "custom": true,
+    "random": true
+  }
+}
