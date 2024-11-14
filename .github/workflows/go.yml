@@ -42,10 +42,8 @@ jobs:
         go mod tidy
         go mod download
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y upx-ucl p7zip-full
+    - name: Install UPX
+      run: sudo apt-get install -y upx-ucl
 
     - name: Build binary
       run: |
@@ -71,21 +69,15 @@ jobs:
         
         cp -r data/config.json "$BUILD_DIR/data/"
         
-        # 使用7z进行压缩
-        7z a -tzip "$BUILD_DIR.zip" "$BUILD_DIR"/*
-        
-        # 验证压缩文件
-        7z t "$BUILD_DIR.zip"
-        
         # 移动到builds目录
         mkdir -p builds
-        mv "$BUILD_DIR.zip" builds/
+        mv "$BUILD_DIR" builds/
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
         name: PandoraHelper-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: builds/*.zip
+        path: builds/*
         retention-days: 1
 
   commit-builds:
@@ -100,9 +92,6 @@ jobs:
         ref: main
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Install 7zip
-      run: sudo apt-get install -y p7zip-full
 
     - name: Download all artifacts
       uses: actions/download-artifact@v3
@@ -119,24 +108,15 @@ jobs:
         mkdir -p builds
         rm -rf builds/*
         
-        # 使用find命令找到所有zip文件并复制到builds目录
-        find temp-builds -name "*.zip" -exec cp -f {} builds/ \;
+        # 复制构建文件到builds目录
+        cp -rf temp-builds/*/* builds/
         
         # 列出所有复制的文件
         echo "Copied files:"
         ls -la builds/
         
-        # 验证所有zip文件
-        for zip in builds/*.zip; do
-          echo "Validating: $zip"
-          if ! 7z t "$zip" > /dev/null; then
-            echo "Error: Invalid zip file: $zip"
-            exit 1
-          fi
-        done
-        
         # 强制添加到 Git（忽略 .gitignore）
-        git add -f builds/*.zip
+        git add -f builds/
         
         # 检查是否有变更
         if git diff --staged --quiet; then
@@ -145,3 +125,43 @@ jobs:
           git commit -m "chore: update builds for ${{ github.ref_name }}"
           git push
         fi
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: builds
+
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1.14.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        artifacts: "builds/**/*"
+        allowUpdates: true
+        draft: false
+        prerelease: false
+        generateReleaseNotes: true
+        body: |
+          ## PandoraHelper Release ${{ github.ref_name }}
+          
+          ### 支持的平台:
+          - Windows (amd64)
+          - Linux (amd64/arm64/arm)
+          - macOS (amd64)
+          
+          ### 安装说明
+          1. 下载对应您系统的构建包
+          2. 解压到任意目录
+          3. 运行PandoraHelper可执行文件
+          
+          ### 注意事项
+          - 首次运行请检查data目录下的config.json配置文件
+          - 如遇问题请提交issue反馈
